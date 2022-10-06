@@ -1,0 +1,16 @@
+[package]
+name = "fsplitter"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/AL68-co/fsplitter"
+description = "A way to transfer big files when file size is limited"
+keywords = ["split", "files"]
+categories = ["cli"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.57"
+once_cell = { version = "1.12.0", features = ["std", "parking_lot"] }
+structopt = "0.3.26"
