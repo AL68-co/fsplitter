@@ -1,0 +1,10 @@
+status = [
+  "stable / fmt",
+  "stable / clippy",
+  "ubuntu / stable / features",
+  "ubuntu / sanitizers",
+  "ubuntu / miri",
+  "ubuntu / stable",
+  "macos-latest / stable", 
+  "windows-latest / stable"
+]
