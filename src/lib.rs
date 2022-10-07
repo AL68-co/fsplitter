@@ -5,54 +5,51 @@ use std::{
 };
 
 use anyhow::Result;
-use once_cell::sync::Lazy;
-use structopt::StructOpt;
+use clap::{Args, Parser};
 
-static OPTS: Lazy<CliOpts> = Lazy::new(CliOpts::from_args);
-
-#[derive(Clone, Debug, StructOpt)]
+#[derive(Clone, Debug, Parser)]
 enum CliOpts {
     Merge(MergeOptions),
     Split(SplitOptions),
 }
 
-#[derive(Clone, Debug, StructOpt)]
+#[derive(Clone, Debug, Args)]
 struct MergeOptions {
     /// Input file
-    #[structopt(parse(from_os_str))]
+    #[arg()]
     input: PathBuf,
     /// Output file base name, output.dat if not present
     ///
     /// Will be appended the sequence number.
-    #[structopt(parse(from_os_str), default_value = "output.dat")]
+    #[arg(default_value = "output.dat")]
     output: PathBuf,
 }
 
-#[derive(Clone, Debug, StructOpt)]
+#[derive(Clone, Debug, Args)]
 struct SplitOptions {
     /// Input file
-    #[structopt(parse(from_os_str))]
+    #[arg()]
     input: PathBuf,
     /// Output file base name, output.spl if not present
     ///
     /// Will be appended the sequence number.
-    #[structopt(parse(from_os_str), default_value = "output.spl")]
+    #[arg(default_value = "output.spl")]
     output: PathBuf,
 
     /// Max size in bytes per split file
     /// Default value: 1 MiB
-    #[structopt(short, long, default_value = "1048576")]
+    #[arg(short, long, default_value = "1048576")]
     size: u64,
 }
 
 pub fn main() -> Result<()> {
-    match &*OPTS {
+    match CliOpts::parse() {
         CliOpts::Merge(o) => merge_files(o),
         CliOpts::Split(o) => split_file(o),
     }
 }
 
-fn merge_files(options: &MergeOptions) -> Result<()> {
+fn merge_files(options: MergeOptions) -> Result<()> {
     let input_path = &options.input;
     let output_path = &options.output;
 
@@ -98,7 +95,7 @@ fn merge_files(options: &MergeOptions) -> Result<()> {
     Ok(())
 }
 
-fn split_file(options: &SplitOptions) -> Result<()> {
+fn split_file(options: SplitOptions) -> Result<()> {
     let read_options = {
         let mut o = OpenOptions::new();
         o.read(true).create(false);
