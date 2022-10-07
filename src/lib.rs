@@ -1,145 +1,41 @@
-use std::{
-    fs::{self, OpenOptions},
-    io::{self, BufReader, BufWriter, Read, Write},
-    path::PathBuf,
-};
+use std::io::{self, BufReader, BufWriter, Read, Seek, Write};
 
 use anyhow::Result;
-use clap::{Args, Parser};
 
-#[derive(Clone, Debug, Parser)]
-enum CliOpts {
-    Merge(MergeOptions),
-    Split(SplitOptions),
-}
+pub fn merge_files(
+    input_files: impl IntoIterator<Item = Result<impl Read + Seek, io::Error>>,
+    output: impl Write + Seek,
+) -> Result<()> {
+    let mut output_file = BufWriter::new(output);
 
-#[derive(Clone, Debug, Args)]
-struct MergeOptions {
-    /// Input file
-    #[arg()]
-    input: PathBuf,
-    /// Output file base name, output.dat if not present
-    ///
-    /// Will be appended the sequence number.
-    #[arg(default_value = "output.dat")]
-    output: PathBuf,
-}
-
-#[derive(Clone, Debug, Args)]
-struct SplitOptions {
-    /// Input file
-    #[arg()]
-    input: PathBuf,
-    /// Output file base name, output.spl if not present
-    ///
-    /// Will be appended the sequence number.
-    #[arg(default_value = "output.spl")]
-    output: PathBuf,
-
-    /// Max size in bytes per split file
-    /// Default value: 1 MiB
-    #[arg(short, long, default_value = "1048576")]
-    size: u64,
-}
-
-pub fn main() -> Result<()> {
-    match CliOpts::parse() {
-        CliOpts::Merge(o) => merge_files(o),
-        CliOpts::Split(o) => split_file(o),
-    }
-}
-
-fn merge_files(options: MergeOptions) -> Result<()> {
-    let input_path = &options.input;
-    let output_path = &options.output;
-
-    let read_options = {
-        let mut o = OpenOptions::new();
-        o.read(true).create(false);
-        o
-    };
-    let write_options = {
-        let mut o = OpenOptions::new();
-        o.write(true).create(true).truncate(true);
-        o
-    };
-
-    let mut output_file = BufWriter::new(write_options.open(output_path)?);
-
-    let mut files = fs::read_dir(".")?
-        .flatten()
-        .filter(|f| {
-            f.file_name()
-                .to_string_lossy()
-                .starts_with(&*input_path.file_name().unwrap().to_string_lossy())
-        })
-        .collect::<Vec<_>>();
-    files.sort_by_cached_key(|v| {
-        PathBuf::from(v.file_name())
-            .extension()
-            .and_then(|e| {
-                e.to_str().map(|s| {
-                    s.parse::<u64>()
-                        .unwrap_or_else(|e| panic!("Invalid input file {s}: {e}"))
-                })
-            })
-            .unwrap_or(0u64)
-    });
-
-    for file in files {
+    for file in input_files {
         //        println!("{}", file.path().display());
-        let mut input_file = BufReader::new(read_options.open(file.path())?);
+        let mut input_file = BufReader::new(file?);
         io::copy(&mut input_file, &mut output_file)?;
     }
 
     Ok(())
 }
 
-fn split_file(options: SplitOptions) -> Result<()> {
-    let read_options = {
-        let mut o = OpenOptions::new();
-        o.read(true).create(false);
-        o
-    };
-    let write_options = {
-        let mut o = OpenOptions::new();
-        o.write(true).create(true).truncate(true);
-        o
-    };
-    let mut input_file = BufReader::new(read_options.open(&options.input)?);
-    let output_path = &options.output;
-    let len = input_file.get_ref().metadata()?.len();
-    if len <= options.size {
-        let mut output_file = write_options.open(output_path)?;
+pub fn split_file<O: Write + Seek>(
+    max_size: u64,
+    input_file: impl Read + Seek,
+    mut outputs: impl FnMut() -> Result<O, io::Error>,
+) -> Result<()> {
+    let mut input_file = BufReader::new(input_file);
+    let start = input_file.stream_position()?;
+    let end = input_file.seek(io::SeekFrom::End(0))?;
+    let len = end - start;
+    input_file.seek(io::SeekFrom::Start(start))?;
+    if len <= max_size {
+        let mut output_file = ((outputs)())?;
         io::copy(&mut input_file, &mut output_file)?;
     } else {
         let mut written = 0;
-        let mut chunk = 0;
-        let output_path = {
-            let ext = {
-                let mut p = output_path
-                    .extension()
-                    .map(|v| {
-                        let mut s = v.to_owned();
-                        s.push(".");
-                        s
-                    })
-                    .unwrap_or_else(|| "".into());
-                p.push("ext");
-                p
-            };
-            output_path.with_extension(ext)
-        };
         while written < len {
-            let mut output_file =
-                BufWriter::new(write_options.open(output_path.with_extension(format!("{chunk}")))?);
-            written += io::copy(
-                &mut input_file.by_ref().take(options.size),
-                &mut output_file,
-            )?;
+            let mut output_file = BufWriter::new((outputs)()?);
+            written += io::copy(&mut input_file.by_ref().take(max_size), &mut output_file)?;
             output_file.flush()?;
-            output_file.get_ref().sync_all()?;
-            chunk += 1;
         }
     }
     Ok(())
