@@ -112,3 +112,15 @@ fn main() -> Result<()> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use clap::CommandFactory;
+
+    use super::*;
+
+    #[test]
+    fn clap() {
+        CliOpts::command().debug_assert();
+    }
+}
