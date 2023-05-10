@@ -1,6 +1,6 @@
 # FSplitter
 
-This cli app will split a file in multiple filed that do not exceed a desired size.
+This cli app will split a file in multiple files that do not exceed a desired size.
 It is also used to combine those split files.
 
 ## License
