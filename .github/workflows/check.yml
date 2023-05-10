@@ -1,8 +1,9 @@
 on:
   push:
-    branches: [main, trying, staging]
+    branches: [main]
   pull_request:
     branches: [main]
+  merge_group:
 name: check
 jobs:
   fmt:
