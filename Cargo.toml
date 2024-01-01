@@ -11,5 +11,5 @@ categories = ["cli"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.77"
+anyhow = "1.0.78"
 clap = { version = "4.4.12", features = ["derive"] }
